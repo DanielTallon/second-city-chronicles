@@ -277,6 +277,7 @@ body.placing-mode #map { cursor: crosshair; }
     <button class="btn primary" id="e-save" type="submit">Save</button>
     <button class="btn" id="e-cancel" type="button">Cancel</button>
     <button class="btn" id="e-move" type="button" hidden>Move on map</button>
+    <button class="btn" id="e-reset" type="button" hidden>Put back where the sourcebook has it</button>
     <button class="btn danger" id="e-delete" type="button" hidden>Delete location</button>
   </div>
 </form>
@@ -320,6 +321,7 @@ PINS.forEach(p => {
   const base = slug(p.name);
   slugSeen[base] = (slugSeen[base] || 0) + 1;
   p.id = slugSeen[base] > 1 ? base + "-" + slugSeen[base] : base;
+  p.lat0 = p.lat; p.lon0 = p.lon;   // the sourcebook map's spot, kept so a moved pin can go back
   p.f = classify(p);
   const s = p.desc.match(SRC_RE);
   p.src = s ? `${s[1]}, p. ${s[2].replace(/\s+/g, " ")}` : "—";
@@ -473,7 +475,7 @@ function showDossier(d) {
   $("d-desc").hidden = !!d.custom;
   $("d-desc").textContent = d.note || "No notes on file.";
   $("d-src").textContent = d.custom ? "Your addition" : d.src;
-  $("d-xy").textContent = `${d.lat.toFixed(4)}° N, ${Math.abs(d.lon).toFixed(4)}° W`;
+  $("d-xy").textContent = `${d.lat.toFixed(4)}° N, ${Math.abs(d.lon).toFixed(4)}° W` + (isMoved(d) ? " (moved by you)" : "");
   const m = mineOf(d);
   $("d-mine").hidden = !(m.notes || m.photos.length);
   $("d-mine").querySelector("h4").textContent = d.custom ? "Notes" : "Your notes";
@@ -481,7 +483,7 @@ function showDossier(d) {
   $("d-mynotes").hidden = !m.notes;
   $("d-photos").replaceChildren(...m.photos.map(p => photoThumb(p)));
   $("d-edit").hidden = !canWrite;
-  $("d-edit").textContent = d.custom ? "Edit location" : hasMine(d) ? "Edit your notes & photos" : "Add your notes & photos";
+  $("d-edit").textContent = d.custom ? "Edit location" : "Edit notes, photos or position";
 }
 $("close").onclick = () => {
   selected = null; $("dossier").hidden = true;
@@ -509,7 +511,13 @@ svg.on("click", e => {
   const [px, py] = zt.invert(d3.pointer(e, svg.node()));
   const [lon, lat] = proj.invert([px, py]);
   const p = placing; stopPlacing();
-  if (p.forEditor) { draft.lat = lat; draft.lon = lon; $("editor").hidden = false; renderDraftPin(); }
+  if (p.forEditor) {
+    draft.lat = lat; draft.lon = lon;
+    $("editor").hidden = false;
+    $("e-reset").hidden = draft.custom;
+    $("e-status").textContent = "New position set. Save to keep it.";
+    renderDraftPin();
+  }
   else openEditor({ custom: true, isNew: true, name: "", f: "kindred", lat, lon, notes: "", photos: [] });
 });
 $("add-btn").onclick = () => {
@@ -537,7 +545,8 @@ function openEditor(d) {
   $("e-name").value = d.name || "";
   $("e-faction").value = d.f;
   $("e-notes").value = m.notes;
-  $("e-move").hidden = !d.custom;
+  $("e-move").hidden = false;
+  $("e-reset").hidden = !isMoved(d);
   $("e-delete").hidden = !d.custom || d.isNew;
   $("e-delete").textContent = "Delete location";
   $("e-delete").dataset.armed = "";
@@ -557,12 +566,20 @@ function renderDraftPhotos() {
 // A preview pin shows where an unsaved or moved location will land.
 function renderDraftPin() {
   pinG.selectAll(".draft").remove();
-  if (!draft || !draft.custom) return;
+  if (!draft) return;
+  const real = byId(draft.id);
+  // A sourcebook site that hasn't been moved needs no preview: its own pin is already there.
+  if (!draft.custom && real && real.lat === draft.lat && real.lon === draft.lon) return;
   const [x, y] = zt.apply(proj([draft.lon, draft.lat]));
-  const g = pinG.append("g").attr("class", "pin draft on").style("--c", F[$("e-faction").value].c).attr("transform", `translate(${x},${y})`);
+  const f = draft.custom ? $("e-faction").value : draft.f;
+  const g = pinG.append("g").attr("class", "pin draft on").style("--c", F[f].c).attr("transform", `translate(${x},${y})`);
   g.append("path").attr("class", "halo").attr("d", HALO.ring);
-  g.append("circle").attr("class", "glyph-bg").attr("r", 15);
-  g.append("text").attr("class", "glyph").text("✦");
+  if (draft.custom) {
+    g.append("circle").attr("class", "glyph-bg").attr("r", 15);
+    g.append("text").attr("class", "glyph").text("✦");
+  } else {
+    g.append("image").attr("class", "mark").attr("href", ICONS[draft.icon]).attr("x", -20).attr("y", -20).attr("width", 40).attr("height", 40);
+  }
 }
 zoom.on("zoom.draft", () => { if (draft) renderDraftPin(); });
 $("e-faction").onchange = () => { $("editor").style.setProperty("--c", F[$("e-faction").value].c); renderDraftPin(); };
@@ -580,6 +597,12 @@ function closeEditor(silent) {
 }
 $("e-cancel").onclick = () => closeEditor(false);
 $("e-move").onclick = () => { $("editor").hidden = true; startPlacing("Click the map where this location should move.", true); };
+$("e-reset").onclick = () => {
+  draft.lat = draft.lat0; draft.lon = draft.lon0;
+  $("e-reset").hidden = true;
+  $("e-status").textContent = "Back at the sourcebook spot. Save to keep it.";
+  renderDraftPin();
+};
 
 $("e-file").onchange = async e => {
   const files = [...e.target.files];
@@ -621,8 +644,12 @@ $("editor").onsubmit = async e => {
       const body = { name, f: $("e-faction").value, lat: +draft.lat.toFixed(6), lon: +draft.lon.toFixed(6), notes, photos: draft.photos, updated: Date.now() };
       if (draft.isNew) { const ref = await db.collection("places").add({ ...body, created: Date.now() }); id = "c-" + ref.id; }
       else await db.doc("places/" + draft.docId).update(body);
-    } else if (notes || draft.photos.length) {
-      await db.doc("notes/" + draft.id).set({ notes, photos: draft.photos, updated: Date.now() });
+    } else if (notes || draft.photos.length || draft.lat !== draft.lat0 || draft.lon !== draft.lon0) {
+      const moved = draft.lat !== draft.lat0 || draft.lon !== draft.lon0;
+      await db.doc("notes/" + draft.id).set({
+        notes, photos: draft.photos, updated: Date.now(),
+        ...(moved ? { lat: +draft.lat.toFixed(6), lon: +draft.lon.toFixed(6) } : {}),
+      });
     } else {
       await db.doc("notes/" + draft.id).delete();
     }
@@ -716,7 +743,13 @@ function buildList() {
 }
 
 let pendingSelect = null;
+const isMoved = d => !d.custom && (d.lat !== d.lat0 || d.lon !== d.lon0);
 function refresh() {
+  // A sourcebook pin you moved sits where you put it; with no saved spot it returns to the original.
+  PINS.forEach(p => {
+    const n = NOTES[p.id];
+    [p.lat, p.lon] = n && "lat" in n ? [n.lat, n.lon] : [p.lat0, p.lon0];
+  });
   ALL = PINS.concat(CUSTOM);
   if (selected && !byId(selected)) { selected = null; $("dossier").hidden = true; }
   buildList();
@@ -743,7 +776,10 @@ const toPlace = (docId, v) => ({
   lat: +v.lat || 41.88, lon: +v.lon || -87.63,
   notes: String(v.notes || ""), photos: photoIds(v),
 });
-const toNotes = v => ({ notes: String(v.notes || ""), photos: photoIds(v) });
+const toNotes = v => ({
+  notes: String(v.notes || ""), photos: photoIds(v),
+  ...(Number.isFinite(v.lat) && Number.isFinite(v.lon) ? { lat: v.lat, lon: v.lon } : {}),
+});
 
 (async () => {
   // The public site is a read-only snapshot: its data ships with the page instead of coming from claude.ai.
