@@ -370,20 +370,26 @@ function classify(p) {
   if (m) { const n = +m[1]; return n < 150 ? "kindred" : n < 285 ? "uratha" : "awakened"; }
   return "mortal";
 }
-const SRC_RE = /(Chicago|Global Outbreaks|Tome of the Pentacle|PtC1)\s*p\.?\s*([\d,\s]+\d)/i;
+const SRC_RE = /(Chicago|Global Outbreaks|Tome of the Pentacle|PtC1)\s*p\.?\s*(\d[\d,\s]*\d|\d)/i;
 // Each sourcebook site gets a stable id from its name, so your notes on it survive later map updates.
 const slugSeen = {};
 const slug = s => s.toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 80) || "site";
+// Places from the World of Darkness: Chicago book that the community map doesn't have. They have no icon art,
+// so they carry a star like your own places. approx marks spots the book only gives as a neighborhood or area.
+const BOOK_PINS = [{"name": "Obsidian Sanctuary", "f": "mortal", "lat": 41.9398, "lon": -87.6685, "approx": true, "where": "Around Clark and Belmont, Lakeview", "desc": "Goth and straightedge mutual-aid group that takes in runaways and warns its members about vampires and witches; outsiders call it a cult or a street gang. Chicago p.40", "layer": "From the Chicago book", "icon": null}, {"name": "Wakenight Estate", "f": "mortal", "lat": 42.1152, "lon": -87.7325, "approx": true, "where": "A lakefront estate on the North Shore; the book names no town", "desc": "Richard Wakenight's mansion, turned into a retreat for his Cathedral of the Emerald Sun. Flagellants gather there, and neighbors dream of a green sun. Chicago p.41", "layer": "From the Chicago book", "icon": null}, {"name": "Sylvia Raines's Shelter", "f": "kindred", "lat": 41.8676, "lon": -87.665, "approx": true, "where": "A West Side homeless shelter near Cassandra's Visions", "desc": "Sylvia Raines, a Sanctified Mekhet, works nights here counseling addicts, feeding on those who relapse and sometimes on those who don't. Chicago p.119", "layer": "From the Chicago book", "icon": null}, {"name": "Utrecht Mental Asylum", "f": "uratha", "lat": 41.9552, "lon": -87.7998, "approx": true, "where": "A closed asylum on the North Side; placed at the old Dunning asylum grounds as a suggestion", "desc": "Shuttered asylum where the Forsaken hold occasional gatherings on neutral ground. Chicago p.187", "layer": "From the Chicago book", "icon": null}, {"name": "The Scrawl", "f": "uratha", "lat": 41.8935, "lon": -87.6256, "approx": true, "where": "An alley off the Magnificent Mile, in the Whispers' territory", "desc": "The Whispers' locus (Mystery): a faded mystic design in an alley, marking a ritual or fight from over 20 years ago. The pack fears answers would end it. Chicago p.214", "layer": "From the Chicago book", "icon": null}, {"name": "Bachelor's Grove Cemetery", "f": "mortal", "lat": 41.6309, "lon": -87.7707, "approx": false, "where": "", "desc": "Abandoned, famously haunted cemetery in the woods near Midlothian. In the book's opening story, dreams of crows and blood point there before the Equinox. Chicago p.4", "layer": "From the Chicago book", "icon": null}];
+PINS.push(...BOOK_PINS);
+
 PINS.forEach(p => {
   const base = slug(p.name);
   slugSeen[base] = (slugSeen[base] || 0) + 1;
   p.id = slugSeen[base] > 1 ? base + "-" + slugSeen[base] : base;
   p.lat0 = p.lat; p.lon0 = p.lon;   // the sourcebook map's spot, kept so a moved pin can go back
-  p.f = classify(p);
-  const s = p.desc.match(SRC_RE);
-  p.src = s ? `${s[1]}, p. ${s[2].replace(/\s+/g, " ")}` : "—";
+  p.f = p.f || classify(p);
+  // A bare "P. 384" on the community map is a Chicago page (the Harold Washington Library's pylon).
+  const s = p.desc.match(SRC_RE) || p.desc.match(/()\bP\.\s*(\d+)/);
+  p.src = s ? `${s[1] || "Chicago"}, p. ${s[2].replace(/\s+/g, " ")}` : "—";
   p.page = s ? +s[2].match(/\d+/)[0] : 999;
-  p.note = p.desc.replace(SRC_RE, "").replace(/\s+/g, " ").trim();
+  p.note = p.desc.replace(s ? s[0] : "", "").replace(/\(\s*\)/g, "").replace(/\s+/g, " ").trim();
 });
 
 const svg = d3.select("#map"), world = d3.select("#world"), pinG = d3.select("#pins");
@@ -452,10 +458,10 @@ function drawPins() {
   g.append("path").attr("class", "halo").attr("d", d => HALO[d.f] || HALO.ring)
     .style("animation-delay", () => (-Math.random() * 9).toFixed(2) + "s");
   g.filter(d => d.f === "awakened").append("circle").attr("class", "halo2").attr("r", 20);
-  g.filter(d => !d.custom).append("image").attr("class", "mark").attr("href", d => ICONS[d.icon])
+  g.filter(d => d.icon).append("image").attr("class", "mark").attr("href", d => ICONS[d.icon])
     .attr("x", -20).attr("y", -20).attr("width", 40).attr("height", 40);
-  // Your own places have no sourcebook art, so they carry a star of their faction's color.
-  const c = g.filter(d => d.custom);
+  // Your own places and the book-only places have no icon art, so they carry a star of their faction's color.
+  const c = g.filter(d => !d.icon);
   c.append("circle").attr("class", "glyph-bg").attr("r", 15);
   c.append("text").attr("class", "glyph").text("✦");
   g.append("text").attr("class", "pin-label").attr("x", 28).attr("y", 5).text(d => d.name);
@@ -494,6 +500,7 @@ const zoom = d3.zoom().scaleExtent([0.6, 14]).on("zoom", e => { zt = e.transform
 svg.call(zoom);
 
 function flyTo(d) {
+  if (!W) return;   // the map hasn't been sized yet (a hidden or zero-size window)
   const [x, y] = bounded(d), k = Math.max(zt.k, 3.2);
   // Keep the pin clear of the panels. Desktop: right of the case file, or between it and the editor when that's open.
   // Phones: in the gap between the card at the top and the case file at the bottom.
@@ -546,10 +553,11 @@ function showDossier(d) {
   $("d-desc").hidden = !!d.custom;
   $("d-desc").textContent = d.note || "No notes on file.";
   $("d-src").textContent = d.custom ? "Your addition" : d.src;
-  const addr = d.custom ? d.address : NOTES[d.id]?.address;
+  const addr = d.custom ? d.address : NOTES[d.id]?.address || d.where;
+  $("d-addr-dt").textContent = !d.custom && !NOTES[d.id]?.address && d.where ? "Where" : "Address";
   $("d-addr").textContent = addr || "";
   $("d-addr").hidden = $("d-addr-dt").hidden = !addr;
-  $("d-xy").textContent = `${d.lat.toFixed(4)}° N, ${Math.abs(d.lon).toFixed(4)}° W` + (isMoved(d) ? " (moved by you)" : "");
+  $("d-xy").textContent = `${d.lat.toFixed(4)}° N, ${Math.abs(d.lon).toFixed(4)}° W` + (isMoved(d) ? " (moved by you)" : d.approx ? " (approximate)" : "");
   const m = mineOf(d);
   $("d-mine").hidden = !(m.notes || m.photos.length);
   $("d-mine").querySelector("h4").textContent = d.custom ? "Notes" : "Your notes";
@@ -750,7 +758,7 @@ function renderDraftPin() {
   const f = draft.custom ? $("e-faction").value : draft.f;
   const g = pinG.append("g").attr("class", "pin draft on").style("--c", F[f].c).attr("transform", `translate(${x},${y})`);
   g.append("path").attr("class", "halo").attr("d", HALO.ring);
-  if (draft.custom) {
+  if (!draft.icon) {
     g.append("circle").attr("class", "glyph-bg").attr("r", 15);
     g.append("text").attr("class", "glyph").text("✦");
   } else {
@@ -906,7 +914,7 @@ function buildList() {
       const r = document.createElement("button");
       r.type = "button"; r.className = "row" + (p.id === selected ? " on" : "") + (!p.custom && hasMine(p) ? " noted" : "");
       r.dataset.id = p.id;
-      const ico = p.custom ? Object.assign(document.createElement("span"), { className: "glyph", textContent: "✦" }) : Object.assign(document.createElement("img"), { alt: "", src: ICONS[p.icon] });
+      const ico = !p.icon ? Object.assign(document.createElement("span"), { className: "glyph", textContent: "✦" }) : Object.assign(document.createElement("img"), { alt: "", src: ICONS[p.icon] });
       const nm = document.createElement("span"); nm.textContent = p.name;
       const sm = document.createElement("small"); sm.textContent = p.custom ? "yours" : p.page < 999 ? "p." + p.page : "";
       r.append(ico, nm, sm);
