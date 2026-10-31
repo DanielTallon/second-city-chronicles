@@ -51,15 +51,16 @@ html, body { touch-action: manipulation; overscroll-behavior: none; }
 .road.secondary { stroke: var(--sodium); stroke-opacity: 0.24; stroke-width: 0.9; }
 .road.primary { stroke: var(--sodium); stroke-opacity: 0.16; stroke-width: 0.7; }
 .road.trunk { stroke: var(--sodium); stroke-opacity: 0.32; stroke-width: 1; }
-.road.motorway { stroke: var(--sodium); stroke-opacity: 0.55; stroke-width: 1.3; filter: url(#glow); }
+.road.motorway { stroke: var(--sodium); stroke-opacity: 0.55; stroke-width: 1.3; }
+.road.motorway-glow { stroke: var(--sodium); stroke-opacity: 0.12; stroke-width: 5; }   /* a soft halo without a filter */
 .river { fill: none; stroke: var(--river); stroke-width: 1.6; stroke-opacity: 0.85; vector-effect: non-scaling-stroke; }
 .shore { fill: none; stroke: var(--lake-line); stroke-width: 1.2; vector-effect: non-scaling-stroke; }
 .hood { font-family: var(--type); font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; fill: var(--paper-dim); fill-opacity: 0.6; paint-order: stroke; stroke: var(--ink); stroke-width: 3px; text-anchor: middle; pointer-events: none; }
 /* In the story all of Chicago is a protected Changeling Freehold, so the city limits are a hedge of thorns.
-   The barbs keep their size at any zoom and creep slowly along the line. */
-.freehold-line { fill: none; stroke: var(--changeling); stroke-opacity: 0.45; stroke-width: 1.2; vector-effect: non-scaling-stroke; filter: url(#glow); }
-.freehold-thorns { fill: none; stroke: var(--changeling); stroke-opacity: 0.5; stroke-width: 6; stroke-dasharray: 1.2 11; vector-effect: non-scaling-stroke; animation: hedge-creep 12s linear infinite; }
-@keyframes hedge-creep { to { stroke-dashoffset: -12.2; } }
+   The barbs keep their size at any zoom. */
+.freehold-glow { fill: none; stroke: var(--changeling); stroke-opacity: 0.12; stroke-width: 5; vector-effect: non-scaling-stroke; }
+.freehold-line { fill: none; stroke: var(--changeling); stroke-opacity: 0.5; stroke-width: 1.2; vector-effect: non-scaling-stroke; }
+.freehold-thorns { fill: none; stroke: var(--changeling); stroke-opacity: 0.5; stroke-width: 6; stroke-dasharray: 1.2 11; vector-effect: non-scaling-stroke; }
 .freehold-label { font-family: var(--display); font-style: italic; font-size: 12px; letter-spacing: 0.1em; fill: var(--changeling); fill-opacity: 0.75; text-anchor: middle; pointer-events: none; }
 .lake-label { font-family: var(--display); font-style: italic; font-size: 30px; letter-spacing: 0.3em; fill: var(--lake-line); text-anchor: middle; pointer-events: none; }
 
@@ -107,11 +108,14 @@ html, body { touch-action: manipulation; overscroll-behavior: none; }
 .pin:hover .halo, .pin.on .halo { fill-opacity: 0.35; }
 .pin.on .halo, .pin.on .halo2 { stroke: var(--paper); }
 .pin.dim { opacity: 0.12; pointer-events: none; }
+.pin.dim .halo, .pin.dim .halo2 { animation: none; filter: none; }
+#map.moving .halo, #map.moving .halo2 { animation-play-state: paused; filter: none !important; }
 .pin-label { font-family: var(--type); font-size: 15px; fill: var(--paper); paint-order: stroke; stroke: var(--ink); stroke-width: 4px; pointer-events: none; opacity: 0; transition: opacity .15s; }
 .pin:hover .pin-label, .pin.on .pin-label { opacity: 1; }
 .pin:focus-visible { outline: none; }
 .pin:focus-visible .halo { stroke: var(--paper); stroke-width: 3; }
 
+.grain { position: fixed; inset: 0; pointer-events: none; }
 .vignette { position: fixed; inset: 0; pointer-events: none; background: radial-gradient(ellipse at 60% 45%, transparent 50%, rgba(10, 10, 20, 0.5) 100%); }
 
 /* Case file */
@@ -249,14 +253,13 @@ body.placing-mode #map { cursor: crosshair; }
       <filter id="glow" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="1.6" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
       <filter id="neon" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
       <filter id="haze" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
-      <filter id="grain"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" stitchTiles="stitch"/><feColorMatrix values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 0.05 0"/></filter>
     </defs>
     <rect class="suburb" width="100%" height="100%"/>
     <g id="world"></g>
     <g id="pins"></g>
-    <rect width="100%" height="100%" filter="url(#grain)" pointer-events="none"/>
   </svg>
   <div class="vignette"></div>
+  <div class="grain" id="grain"></div>
 </div>
 
 <div class="legend-note">Scroll or pinch to zoom<br>Drag to pan</div>
@@ -392,6 +395,16 @@ PINS.forEach(p => {
   p.note = p.desc.replace(s ? s[0] : "", "").replace(/\(\s*\)/g, "").replace(/\s+/g, " ").trim();
 });
 
+// Film grain: a noise tile drawn once and repeated. (An SVG noise filter looked the same but was recomputed
+// over the whole screen on every frame, which made phones stutter.)
+{
+  const c = document.createElement("canvas"); c.width = c.height = 128;
+  const x = c.getContext("2d"), img = x.createImageData(128, 128);
+  for (let i = 0; i < img.data.length; i += 4) { img.data[i] = img.data[i + 1] = img.data[i + 2] = 255; img.data[i + 3] = Math.random() * 13; }
+  x.putImageData(img, 0, 0);
+  document.getElementById("grain").style.backgroundImage = `url(${c.toDataURL()})`;
+}
+
 const svg = d3.select("#map"), world = d3.select("#world"), pinG = d3.select("#pins");
 const areas = { type: "FeatureCollection", features: BASE.areas.map(a => ({ type: "Feature", properties: { n: a.n }, geometry: { type: "MultiPolygon", coordinates: a.r.map(r => [[...r, r[0]]]) } })) };   // rings are stored open; GeoJSON closes them
 const proj = d3.geoMercator();
@@ -406,16 +419,43 @@ function fit() {
 }
 
 const line = d => "M" + d.map(c => proj(c).join(",")).join("L");
+const TILES = 20, LOCAL_ZOOM = 5;
+let built = {};
+const ROAD_BOX = (() => { const f = BASE.local.concat(BASE.secondary).map(l => l[0]); return [d3.extent(f, p => p[0]), d3.extent(f, p => p[1])]; })();
+const tileOf = ([lon, lat]) => {
+  const [[x0, x1], [y0, y1]] = ROAD_BOX, t = (v, a, b) => Math.min(TILES - 1, Math.floor((v - a) / (b - a) * TILES));
+  return t(lon, x0, x1) * TILES + t(lat, y0, y1);
+};
+function showRoads(kind, on) {
+  const g = world.select("#r-" + kind);
+  if (g.empty()) return;
+  if (on && !built[kind]) {
+    built[kind] = true;
+    const tiles = new Map();
+    for (const l of BASE[kind]) { const t = tileOf(l[0]); tiles.set(t, (tiles.get(t) || "") + line(l)); }
+    for (const d of tiles.values()) g.append("path").attr("class", "road " + kind).attr("d", d);
+  }
+  g.attr("display", on ? null : "none");
+}
+
 function drawWorld() {
   world.selectAll("*").remove();
   world.append("path").attr("class", "water").attr("d", line(BASE.lake) + "Z");
   world.append("g").selectAll("path").data(areas.features).join("path").attr("class", "area").attr("d", path);
-  for (const k of ["local", "secondary", "primary", "trunk", "motorway"])
-    world.append("path").attr("class", "road " + k).attr("id", "r-" + k).attr("d", BASE[k].map(line).join(""));
+  // Local and secondary streets are cut into tiles, so the browser can skip the ones off screen,
+  // and are only built the first time you zoom in far enough to see them.
+  for (const k of ["local", "secondary"]) world.append("g").attr("id", "r-" + k).attr("display", "none");
+  built = {};
+  for (const k of ["primary", "trunk"])
+    world.append("path").attr("class", "road " + k).attr("d", BASE[k].map(line).join(""));
+  const motorways = BASE.motorway.map(line).join("");
+  world.append("path").attr("class", "road motorway-glow").attr("d", motorways);
+  world.append("path").attr("class", "road motorway").attr("d", motorways);
   world.append("path").attr("class", "river").attr("d", BASE.river.map(line).join(""));
   const [lx, ly] = proj([-87.48, 41.93]);
   world.append("text").attr("class", "lake-label").attr("x", lx).attr("y", ly).text("Lake Michigan");
   const fh = world.append("g").attr("id", "freehold"), limits = FREEHOLD.map(r => line(r) + "Z").join("");
+  fh.append("path").attr("class", "freehold-glow").attr("d", limits);
   fh.append("path").attr("class", "freehold-line").attr("d", limits);
   fh.append("path").attr("class", "freehold-thorns").attr("d", limits);
   const [fx, fy] = proj([-87.84, 41.712]);   // in the suburbs off the southwest limits, clear of the city and the case file
@@ -479,8 +519,8 @@ function place() {
   }).classed("dim", d => off.has(d.f)).classed("on", d => d.id === selected);
   world.select("#freehold").attr("display", off.has("changeling") ? "none" : null);   // the Freehold shows with the Changeling filter
   world.attr("transform", zt);
-  world.select("#r-secondary").attr("display", k > 1.6 ? null : "none");
-  world.select("#r-local").attr("display", k > 3 ? null : "none");
+  showRoads("secondary", k > 1.6);
+  showRoads("local", k > LOCAL_ZOOM);
   world.select("#hoods").attr("display", k > 1.8 ? null : "none").selectAll("text").style("font-size", 12 / k + "px").style("stroke-width", 3 / k + "px");
 }
 
@@ -496,7 +536,9 @@ function declutter() {
   });
 }
 
-const zoom = d3.zoom().scaleExtent([0.6, 14]).on("zoom", e => { zt = e.transform; place(); }).on("end", declutter);
+const zoom = d3.zoom().scaleExtent([0.6, 14]).on("zoom", e => { zt = e.transform; place(); }).on("end", declutter)
+  // While the map moves, the rings hold still and drop their glow, so phones only redraw what matters.
+  .on("start.calm", () => svg.classed("moving", true)).on("end.calm", () => svg.classed("moving", false));
 svg.call(zoom);
 
 function flyTo(d) {
@@ -950,7 +992,11 @@ function render() {
 buildFilters();
 buildList();
 render();
-addEventListener("resize", () => { render(); });
+addEventListener("resize", () => {
+  // A phone's browser bar or keyboard changes the height a little; redrawing the whole city for that made the map stutter.
+  if (W && innerWidth === W && Math.abs(innerHeight - H) < H * 0.35) { H = innerHeight; return; }
+  render();
+});
 
 /* ---------- Saved data ---------- */
 const photoIds = v => Array.isArray(v.photos) ? v.photos.filter(x => typeof x === "string") : [];
