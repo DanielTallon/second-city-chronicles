@@ -28,6 +28,7 @@
   --promethean: #50fa7b;   /* neon green Divine Fire, glowing, square frame */
   --sineater: #a8f0ff;     /* pale ghost cyan, soft haze, diamond frame */
   --changeling: #f0b429;   /* fae gold, soft glamour glow, ring of thorns */
+  --godmachine: #9aa5b8;   /* cold machined steel, matte, toothed gear that ticks */
   --mortal: #f1fa8c;       /* streetlight yellow, matte, dotted ring */
   --display: "Bodoni Moda", "Didot", "Bodoni 72", Georgia, serif;
   --body: "Spectral", Georgia, "Times New Roman", serif;
@@ -57,10 +58,16 @@ html, body { touch-action: manipulation; overscroll-behavior: none; }
 .shore { fill: none; stroke: var(--lake-line); stroke-width: 1.2; vector-effect: non-scaling-stroke; }
 .hood { font-family: var(--type); font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; fill: var(--paper-dim); fill-opacity: 0.6; paint-order: stroke; stroke: var(--ink); stroke-width: 3px; text-anchor: middle; pointer-events: none; }
 /* In the story all of Chicago is a protected Changeling Freehold, so the city limits are a hedge of thorns.
-   The barbs keep their size at any zoom. */
+   The barbs keep their size at any zoom and, on desktops, creep slowly along the line. */
 .freehold-glow { fill: none; stroke: var(--changeling); stroke-opacity: 0.12; stroke-width: 5; vector-effect: non-scaling-stroke; }
 .freehold-line { fill: none; stroke: var(--changeling); stroke-opacity: 0.5; stroke-width: 1.2; vector-effect: non-scaling-stroke; }
 .freehold-thorns { fill: none; stroke: var(--changeling); stroke-opacity: 0.5; stroke-width: 6; stroke-dasharray: 1.2 11; vector-effect: non-scaling-stroke; }
+/* On desktops the thorns creep along the line. Phones skip it: it keeps the whole map redrawing. */
+@media (hover: hover) and (pointer: fine) and (min-width: 721px) {
+  .freehold-thorns { animation: hedge-creep 12s linear infinite; }
+  #map.moving .freehold-thorns { animation-play-state: paused; }
+}
+@keyframes hedge-creep { to { stroke-dashoffset: -12.2; } }
 .freehold-label { font-family: var(--display); font-style: italic; font-size: 12px; letter-spacing: 0.1em; fill: var(--changeling); fill-opacity: 0.75; text-anchor: middle; pointer-events: none; }
 .lake-label { font-family: var(--display); font-style: italic; font-size: 30px; letter-spacing: 0.3em; fill: var(--lake-line); text-anchor: middle; pointer-events: none; }
 
@@ -75,6 +82,7 @@ html, body { touch-action: manipulation; overscroll-behavior: none; }
 .f-promethean .halo { stroke-width: 3; }
 .f-sineater .halo { filter: url(#haze); fill-opacity: 0.1; }
 .f-changeling .halo { filter: url(#glow); stroke-width: 2; stroke-linejoin: round; }
+.f-godmachine .halo { stroke-width: 2; stroke-linejoin: miter; fill-opacity: 0.2; }
 
 /* Lore motion. Each ring starts at a random point in its cycle so the city never pulses in unison. */
 .f-kindred .halo { transform-box: fill-box; transform-origin: center; animation: heartbeat 1.9s ease-in-out infinite; }
@@ -97,7 +105,9 @@ html, body { touch-action: manipulation; overscroll-behavior: none; }
   40% { opacity: 1; } 63% { opacity: 0.4; } 66% { opacity: 0.9; } 69% { opacity: 1; } 91% { opacity: 0.7; }
 }
 .f-changeling .halo { transform-box: fill-box; transform-origin: center; animation: hedge 80s linear infinite, glamour 6s ease-in-out infinite; }
-@keyframes hedge { to { transform: rotate(360deg); } }   /* the Hedge, slowly creeping */
+@keyframes hedge { to { transform: rotate(360deg); } }
+.f-godmachine .halo { transform-box: fill-box; transform-origin: center; animation: gear-tick 12s steps(12) infinite; }
+@keyframes gear-tick { to { transform: rotate(360deg); } }   /* one tooth a second, like a clock */   /* the Hedge, slowly creeping */
 @keyframes glamour {                 /* a glint of the Mask slipping */
   0%, 40%, 100% { stroke-opacity: 0.9; }
   46% { stroke-opacity: 0.45; }
@@ -138,6 +148,7 @@ h1 { margin: 0; font-family: var(--display); font-style: italic; font-weight: 70
 .chip.f-mortal i { --ring: dotted; }
 .chip.f-promethean i { border-radius: 2px; }
 .chip.f-sineater i { border-radius: 1px; transform: rotate(45deg) scale(0.85); }
+.chip.f-godmachine i { border: 0; background: var(--c); transform: scale(1.3); clip-path: polygon(37% 19%, 45% 16%, 45% 0%, 55% 0%, 55% 16%, 63% 19%, 70% 23%, 81% 11%, 89% 19%, 77% 30%, 81% 37%, 84% 45%, 100% 45%, 100% 55%, 84% 55%, 81% 63%, 77% 70%, 89% 81%, 81% 89%, 70% 77%, 63% 81%, 55% 84%, 55% 100%, 45% 100%, 45% 84%, 37% 81%, 30% 77%, 19% 89%, 11% 81%, 23% 70%, 19% 63%, 16% 55%, 0% 55%, 0% 45%, 16% 45%, 19% 37%, 23% 30%, 11% 19%, 19% 11%, 30% 23%); }
 .chip.f-changeling i { border: 0; background: var(--c); transform: scale(1.3); clip-path: polygon(50% 0%, 61% 22%, 85% 15%, 78% 39%, 100% 50%, 78% 61%, 85% 85%, 61% 78%, 50% 100%, 39% 78%, 15% 85%, 22% 61%, 0% 50%, 22% 39%, 15% 15%, 39% 22%); }
 .chip.f-kindred i { background: var(--c); }
 .chip.f-awakened i, .chip.f-promethean i { box-shadow: 0 0 6px var(--c), inset 0 0 3px var(--c); }
@@ -166,6 +177,7 @@ h1 { margin: 0; font-family: var(--display); font-style: italic; font-weight: 70
 .dossier dl { margin: 4px 0 0; display: grid; grid-template-columns: auto 1fr; gap: 3px 12px; font-family: var(--type); font-size: 12px; border-top: 1px dashed var(--panel-line); padding-top: 10px; }
 .dossier dt { color: var(--paper-dim); text-transform: uppercase; letter-spacing: 0.1em; }
 .dossier dd { margin: 0; }
+.dossier .facts { display: contents; }   /* extra rows such as an Infrastructure's Type and Linchpin */
 .close { position: absolute; top: 10px; right: 12px; background: none; border: 0; font: 700 18px var(--type); color: var(--paper-dim); cursor: pointer; padding: 4px 8px; }
 
 .dossier { max-height: calc(100% - 32px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)); overflow-y: auto; box-sizing: border-box; }
@@ -267,7 +279,7 @@ body.placing-mode #map { cursor: crosshair; }
 <aside class="file" id="file" aria-label="Case file">
   <header>
     <button class="sheet-toggle" id="sheet-toggle" type="button" aria-expanded="true" aria-controls="filters list"><span id="sheet-label">Hide</span></button>
-    <span class="stamp">Case file · Cook County</span>
+    <span class="stamp">Chicago, Illinois</span>
     <h1>Second City Chronicles</h1>
     <p class="lede">Haunts, havens and hunting grounds of the Chronicle of Darkness, laid over the real city.</p>
   </header>
@@ -300,6 +312,7 @@ body.placing-mode #map { cursor: crosshair; }
     <div class="thumbs" id="d-photos"></div>
   </section>
   <dl>
+    <div id="d-facts" class="facts"></div>
     <dt>Source</dt><dd id="d-src"></dd>
     <dt id="d-addr-dt">Address</dt><dd id="d-addr"></dd>
     <dt>Coords</dt><dd id="d-xy"></dd>
@@ -358,6 +371,7 @@ const FACTIONS = [
   { id: "promethean", label: "Promethean", c: "var(--promethean)" },
   { id: "sineater", label: "Sin-Eaters", c: "var(--sineater)" },
   { id: "changeling", label: "Changeling", c: "var(--changeling)" },
+  { id: "godmachine", label: "God-Machine", c: "var(--godmachine)" },
   { id: "mortal",   label: "Mortal", c: "var(--mortal)" },
 ];
 const F = Object.fromEntries(FACTIONS.map(f => [f.id, f]));
@@ -380,7 +394,12 @@ const slug = s => s.toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+/g, "-").
 // Places from the World of Darkness: Chicago book that the community map doesn't have. They have no icon art,
 // so they carry a star like your own places. approx marks spots the book only gives as a neighborhood or area.
 const BOOK_PINS = [{"name": "Obsidian Sanctuary", "f": "mortal", "lat": 41.9398, "lon": -87.6685, "approx": true, "where": "Around Clark and Belmont, Lakeview", "desc": "Goth and straightedge mutual-aid group that takes in runaways and warns its members about vampires and witches; outsiders call it a cult or a street gang. Chicago p.40", "layer": "From the Chicago book", "icon": null}, {"name": "Wakenight Estate", "f": "mortal", "lat": 42.1152, "lon": -87.7325, "approx": true, "where": "A lakefront estate on the North Shore; the book names no town", "desc": "Richard Wakenight's mansion, turned into a retreat for his Cathedral of the Emerald Sun. Flagellants gather there, and neighbors dream of a green sun. Chicago p.41", "layer": "From the Chicago book", "icon": null}, {"name": "Sylvia Raines's Shelter", "f": "kindred", "lat": 41.8676, "lon": -87.665, "approx": true, "where": "A West Side homeless shelter near Cassandra's Visions", "desc": "Sylvia Raines, a Sanctified Mekhet, works nights here counseling addicts, feeding on those who relapse and sometimes on those who don't. Chicago p.119", "layer": "From the Chicago book", "icon": null}, {"name": "Utrecht Mental Asylum", "f": "uratha", "lat": 41.9552, "lon": -87.7998, "approx": true, "where": "A closed asylum on the North Side; placed at the old Dunning asylum grounds as a suggestion", "desc": "Shuttered asylum where the Forsaken hold occasional gatherings on neutral ground. Chicago p.187", "layer": "From the Chicago book", "icon": null}, {"name": "The Scrawl", "f": "uratha", "lat": 41.8935, "lon": -87.6256, "approx": true, "where": "An alley off the Magnificent Mile, in the Whispers' territory", "desc": "The Whispers' locus (Mystery): a faded mystic design in an alley, marking a ritual or fight from over 20 years ago. The pack fears answers would end it. Chicago p.214", "layer": "From the Chicago book", "icon": null}, {"name": "Bachelor's Grove Cemetery", "f": "mortal", "lat": 41.6309, "lon": -87.7707, "approx": false, "where": "", "desc": "Abandoned, famously haunted cemetery in the woods near Midlothian. In the book's opening story, dreams of crows and blood point there before the Equinox. Chicago p.4", "layer": "From the Chicago book", "icon": null}];
-PINS.push(...BOOK_PINS);
+// Sin-Eater places from Chicago Dead, a fan-run Geist game on the Something Awful forums (2018).
+const FAN_PINS = [{"name": "Eastland Disaster Site", "f": "sineater", "lat": 41.88704, "lon": -87.63219, "approx": false, "where": "", "desc": "Where the excursion ship Eastland rolled over at its dock in 1915, drowning about 844 people. A Sin-Eater keeps one of its bells, which rings when anyone drowns nearby; rumor ties it to the Queen of the Drowned.", "layer": "From Chicago Dead", "icon": null, "source": "Chicago Dead (fan game, Something Awful forums)"}, {"name": "Oak Woods Cemetery", "f": "sineater", "lat": 41.7703, "lon": -87.5968, "approx": false, "where": "", "desc": "Old South Side cemetery where the krewe's ghost Marcus is buried. He wants to help its restless dead find peace.", "layer": "From Chicago Dead", "icon": null, "source": "Chicago Dead (fan game, Something Awful forums)"}, {"name": "Feiderman's Finds, Books & Antiques", "f": "sineater", "lat": 41.8671, "lon": -87.6745, "approx": true, "where": "No address in the game; placed on Roosevelt Road, a few blocks from Cassandra's Visions", "desc": "Abraham Feiderman's antique and used-book shop, where the Sin-Eater researches haunted objects with help from his ghostly contacts.", "layer": "From Chicago Dead", "icon": null, "source": "Chicago Dead (fan game, Something Awful forums)"}];
+// God-Machine Infrastructure for Chicago: homebrew built on the Chicago book's geography, following the
+// Infrastructure entries (Type, Function, Security, Linchpin) in Demon: the Descent's Seattle appendix.
+const MACHINE_PINS = [{"name": "Tower 18", "lat": 41.8857, "lon": -87.634, "approx": false, "where": "", "desc": "The old signal tower where the Loop's elevated lines cross at Lake and Wells, once the busiest rail junction in the world. Every train that rounds the Loop is a tick of the Machine's clock.", "facts": [["Type", "Command & Control"], ["Function", "Keeps the city's tempo. Trains circling the Loop pace schedules, shifts and moods across downtown; a late train is felt as a skipped heartbeat."], ["Security", "A signal maintainer who has worked the tower since it opened and hasn't aged a day, and an angel that manifests as a red signal lamp."], ["Linchpin", "The lever frame inside the tower. One unlabeled lever has never been thrown."]], "f": "godmachine", "layer": "Homebrew", "icon": null, "source": "Homebrew, after the Seattle appendix in Demon: the Descent", "tag": "homebrew"}, {"name": "Willis Tower", "lat": 41.87874, "lon": -87.63596, "approx": false, "where": "", "desc": "Bike messengers swear bad luck lives in its shadow (Chicago book, p. 5). They're right: the shadow is a sweep that passes over the Loop like a radar beam every day.", "facts": [["Type", "Defense"], ["Function", "Finds and marks intruders. Anyone who doesn't belong suffers small misfortunes after the shadow crosses them, until they leave or are dealt with."], ["Security", "Angels posing as window washers on the rigs that crawl up the tower's face."], ["Linchpin", "A brass plumb bob hanging in a forgotten shaft between the 33rd and 34th floors. If it ever swings, the sweep goes blind."]], "f": "godmachine", "layer": "Homebrew", "icon": null, "source": "Homebrew, after the Seattle appendix in Demon: the Descent", "tag": "homebrew"}, {"name": "Chicago Board of Trade", "lat": 41.87745, "lon": -87.63178, "approx": false, "where": "", "desc": "Art Deco temple to the futures market, crowned by an aluminum statue of Ceres, goddess of grain, carved without a face because no one on the street could see it.", "facts": [["Type", "Logistical"], ["Function", "Turns the city's hopes into fuel. Every bet on next year's harvest is a small prayer, and the trading floor refines them into power for Infrastructure across the Midwest."], ["Security", "Clerks in identical jackets who appear on no payroll."], ["Linchpin", "Ceres herself. Give her a face and the refinery stalls."]], "f": "godmachine", "layer": "Homebrew", "icon": null, "source": "Homebrew, after the Seattle appendix in Demon: the Descent", "tag": "homebrew"}, {"name": "Chicago Harbor Lock", "lat": 41.88838, "lon": -87.60646, "approx": false, "where": "", "desc": "In 1900 the city made the Chicago River run backward, away from the lake. The engineers called it a triumph; the Machine called it a correction.", "facts": [["Type", "Logistical"], ["Function", "Holds the river to its new course, carrying the city's waste, and whatever else goes into the water, south toward the Mississippi instead of out into the lake."], ["Security", "The lock crew. They wave tour boats through and remember every face aboard."], ["Linchpin", "The lockkeeper's logbook. Someone must write an entry every day; miss one and the river starts to remember its old direction."]], "f": "godmachine", "layer": "Homebrew", "icon": null, "source": "Homebrew, after the Seattle appendix in Demon: the Descent", "tag": "homebrew"}, {"name": "McCook Reservoir (Deep Tunnel)", "lat": 41.78022, "lon": -87.83251, "approx": false, "where": "", "desc": "The Deep Tunnel runs 300 feet under the city (Chicago book, p. 53) and drains into McCook, a limestone quarry turned into one of the biggest storm-water reservoirs on Earth.", "facts": [["Type", "Concealment"], ["Function", "Hides things. What the Machine wants out of sight is flushed into the tunnels and settles at the bottom of the reservoir, under water no one looks into."], ["Security", "Maintenance crews who never come back up the shaft they went down."], ["Linchpin", "Pump No. 7 at the main pumping station. It's on no blueprint, and no one remembers installing it."]], "f": "godmachine", "layer": "Homebrew", "icon": null, "source": "Homebrew, after the Seattle appendix in Demon: the Descent", "tag": "homebrew"}, {"name": "Union Stock Yards Gate", "lat": 41.8204, "lon": -87.6481, "approx": false, "where": "", "desc": "The limestone gate with a carved steer's head is all that's left of the Stock Yards, which processed millions of animals a year. The Mage chapters call it a portal (Chicago book, p. 290).", "facts": [["Type", "Elimination"], ["Function", "Disposal. The Yards were built to process more than cattle; whatever is driven under the arch tonight is unmade on the other side."], ["Security", "An angel shaped like a herding dog, which appears only when someone walks through the arch the wrong way."], ["Linchpin", "The steer's head on the gate. Its eyes have worn smooth; recarve them and the gate forgets its purpose."]], "f": "godmachine", "layer": "Homebrew", "icon": null, "source": "Homebrew, after the Seattle appendix in Demon: the Descent", "tag": "homebrew"}, {"name": "Pullman Clock Tower", "lat": 41.6925, "lon": -87.6083, "approx": false, "where": "", "desc": "George Pullman's company town, where his railway-car workers lived by his rules, rented his houses and shopped at his stores. The Machine's first draft of the perfect suburb.", "facts": [["Type", "Command & Control"], ["Function", "Sets the rhythm of the South Side's industrial corridor. Its bell once ordered every shift, and in its way it still does."], ["Security", "Volunteer docents in period dress who learn every visitor's name."], ["Linchpin", "The clock's escapement. Stop it for one full minute at noon."]], "f": "godmachine", "layer": "Homebrew", "icon": null, "source": "Homebrew, after the Seattle appendix in Demon: the Descent", "tag": "homebrew"}, {"name": "Woodfield Corridor", "lat": 42.0425, "lon": -88.0425, "approx": true, "where": "The office parks and malls around Woodfield in Schaumburg; the corridor has no single site", "desc": "Malls, office parks and tollway ramps around Schaumburg's Woodfield Mall: orderly, prosperous and quiet. Like Seattle's East Side, this is where the Machine moves most easily.", "facts": [["Type", "Logistical"], ["Function", "A clean, stable relay. Power and orders gathered in the city pass out to the suburbs from here."], ["Security", "Everyone. Nearly every worker in the corridor serves the Machine without knowing it, and they notice strangers."], ["Linchpin", "A monument sign at an office park entrance. No one can read the company name on it."]], "f": "godmachine", "layer": "Homebrew", "icon": null, "source": "Homebrew, after the Seattle appendix in Demon: the Descent", "tag": "homebrew"}, {"name": "1871 Splinter (Old Water Tower)", "lat": 41.89718, "lon": -87.62444, "approx": false, "where": "", "desc": "The stone Water Tower is one of the few buildings that survived the Great Fire of 1871. Behind it lies a splinter: a copy of the city as it was that dry autumn, frozen in time, where the fire is always about to happen.", "facts": [["Type", "Splinter fracture"], ["Timeline", "From the drought of early summer to the night of October 8, 1871. When the calendar reaches that night, everything resets and no one remembers. The fire never comes."], ["Origin", "The Water Tower and its pumping station, finished in 1869 as Logistical Infrastructure. The Machine saved a copy of the city just before the fire, the way Seattle's was saved before its own in 1889."], ["Fracture", "After midnight, while the pumping station across Michigan Avenue runs, the tower's door opens onto 1871. The air inside smells of hay, coal smoke and kerosene."], ["Security", "Night watchmen and fire wardens of 1871 who never seem to sleep and notice anything out of its time."], ["Linchpin", "The standpipe inside the tower. If it ever runs dry, the splinter can't reset."]], "f": "godmachine", "layer": "Homebrew", "icon": null, "source": "Homebrew, after the Seattle appendix in Demon: the Descent", "tag": "homebrew"}];
+PINS.push(...BOOK_PINS, ...FAN_PINS, ...MACHINE_PINS);
 
 PINS.forEach(p => {
   const base = slug(p.name);
@@ -390,7 +409,7 @@ PINS.forEach(p => {
   p.f = p.f || classify(p);
   // A bare "P. 384" on the community map is a Chicago page (the Harold Washington Library's pylon).
   const s = p.desc.match(SRC_RE) || p.desc.match(/()\bP\.\s*(\d+)/);
-  p.src = s ? `${s[1] || "Chicago"}, p. ${s[2].replace(/\s+/g, " ")}` : "—";
+  p.src = p.source || (s ? `${s[1] || "Chicago"}, p. ${s[2].replace(/\s+/g, " ")}` : "—");
   p.page = s ? +s[2].match(/\d+/)[0] : 999;
   p.note = p.desc.replace(s ? s[0] : "", "").replace(/\(\s*\)/g, "").replace(/\s+/g, " ").trim();
 });
@@ -483,6 +502,7 @@ const bounded = p => proj([p.lon, p.lat]);
 const HALO = {
   promethean: "M-16,-22H16Q22,-22 22,-16V16Q22,22 16,22H-16Q-22,22 -22,16V-16Q-22,-22 -16,-22Z",
   sineater: "M0,-29L29,0L0,29L-29,0Z",
+  godmachine: "M-6.0,-22.2L-2.4,-22.9L-2.3,-28.9L2.3,-28.9L2.4,-22.9L6.0,-22.2L9.4,-21.0L12.5,-26.2L16.4,-23.9L13.5,-18.6L16.3,-16.3L18.6,-13.5L23.9,-16.4L26.2,-12.5L21.0,-9.4L22.2,-6.0L22.9,-2.4L28.9,-2.3L28.9,2.3L22.9,2.4L22.2,6.0L21.0,9.4L26.2,12.5L23.9,16.4L18.6,13.5L16.3,16.3L13.5,18.6L16.4,23.9L12.5,26.2L9.4,21.0L6.0,22.2L2.4,22.9L2.3,28.9L-2.3,28.9L-2.4,22.9L-6.0,22.2L-9.4,21.0L-12.5,26.2L-16.4,23.9L-13.5,18.6L-16.3,16.3L-18.6,13.5L-23.9,16.4L-26.2,12.5L-21.0,9.4L-22.2,6.0L-22.9,2.4L-28.9,2.3L-28.9,-2.3L-22.9,-2.4L-22.2,-6.0L-21.0,-9.4L-26.2,-12.5L-23.9,-16.4L-18.6,-13.5L-16.3,-16.3L-13.5,-18.6L-16.4,-23.9L-12.5,-26.2L-9.4,-21.0Z",
   changeling: "M-3.0,-22.8L3.1,-30.8L3.0,-22.8L8.8,-21.2L18.1,-25.2L14.0,-18.3L18.3,-14.0L28.3,-12.7L21.2,-8.8L22.8,-3.0L30.8,3.1L22.8,3.0L21.2,8.8L25.2,18.1L18.3,14.0L14.0,18.3L12.7,28.3L8.8,21.2L3.0,22.8L-3.1,30.8L-3.0,22.8L-8.8,21.2L-18.1,25.2L-14.0,18.3L-18.3,14.0L-28.3,12.7L-21.2,8.8L-22.8,3.0L-30.8,-3.1L-22.8,-3.0L-21.2,-8.8L-25.2,-18.1L-18.3,-14.0L-14.0,-18.3L-12.7,-28.3L-8.8,-21.2Z",
   ring: "M-24,0A24,24 0 1,0 24,0A24,24 0 1,0 -24,0Z",
 };
@@ -494,7 +514,8 @@ function drawPins() {
     .attr("aria-label", d => `${d.name}, ${F[d.f].label}`).style("--c", d => F[d.f].c)
     .on("click", (e, d) => { if (!placing) select(d.id, false); })
     .on("keydown", (e, d) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); select(d.id, false); } });
-  // Prometheans get a square frame, Sin-Eaters a diamond and Changelings a ring of thorns, so shape alone tells them apart.
+  // Prometheans get a square frame, Sin-Eaters a diamond, Changelings a ring of thorns and the God-Machine a gear,
+  // so shape alone tells them apart.
   g.append("path").attr("class", "halo").attr("d", d => HALO[d.f] || HALO.ring)
     .style("animation-delay", () => (-Math.random() * 9).toFixed(2) + "s");
   g.filter(d => d.f === "awakened").append("circle").attr("class", "halo2").attr("r", 20);
@@ -594,6 +615,8 @@ function showDossier(d) {
   $("d-name").textContent = d.name;
   $("d-desc").hidden = !!d.custom;
   $("d-desc").textContent = d.note || "No notes on file.";
+  $("d-facts").replaceChildren(...(d.facts || []).flatMap(([k, v]) =>
+    [Object.assign(document.createElement("dt"), { textContent: k }), Object.assign(document.createElement("dd"), { textContent: v })]));
   $("d-src").textContent = d.custom ? "Your addition" : d.src;
   const addr = d.custom ? d.address : NOTES[d.id]?.address || d.where;
   $("d-addr-dt").textContent = !d.custom && !NOTES[d.id]?.address && d.where ? "Where" : "Address";
@@ -958,7 +981,7 @@ function buildList() {
       r.dataset.id = p.id;
       const ico = !p.icon ? Object.assign(document.createElement("span"), { className: "glyph", textContent: "✦" }) : Object.assign(document.createElement("img"), { alt: "", src: ICONS[p.icon] });
       const nm = document.createElement("span"); nm.textContent = p.name;
-      const sm = document.createElement("small"); sm.textContent = p.custom ? "yours" : p.page < 999 ? "p." + p.page : "";
+      const sm = document.createElement("small"); sm.textContent = p.custom ? "yours" : p.page < 999 ? "p." + p.page : p.source ? p.tag || "fan" : "";
       r.append(ico, nm, sm);
       r.onclick = () => select(p.id, true);
       sec.append(r);
